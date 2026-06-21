@@ -46,6 +46,22 @@ class Maybe(  # type: ignore[type-var]
     #: Typesafe equality comparison with other `Result` objects.
     equals = container_equality
 
+    @property
+    def success(self) -> bool:
+        """
+        Returns ``True`` if the container is in a successful state.
+
+        This property is side-effect free and can be used for checking
+        the container state without triggering any unwrap logic.
+
+        .. code:: python
+
+          >>> from returns.maybe import Some, Nothing
+          >>> assert Some(1).success
+          >>> assert not Nothing.success
+
+        """
+
     def map(
         self,
         function: Callable[[_ValueType_co], _NewValueType],
@@ -275,13 +291,27 @@ class Maybe(  # type: ignore[type-var]
         """
         Creates new instance of ``Maybe`` container based on a value.
 
+        If the value is ``None``, returns ``Nothing``.
+        This is consistent with :meth:`~Maybe.from_optional`
+        and provides a unified interpretation of ``None`` as empty.
+
         .. code:: python
 
-          >>> from returns.maybe import Maybe, Some
+          >>> from returns.maybe import Maybe, Some, Nothing
           >>> assert Maybe.from_value(1) == Some(1)
-          >>> assert Maybe.from_value(None) == Some(None)
+          >>> assert Maybe.from_value(None) == Nothing
+
+        If you need to wrap ``None`` as a valid value (creating ``Some(None)``),
+        use the :class:`~Some` constructor directly.
+
+        .. code:: python
+
+          >>> from returns.maybe import Some
+          >>> assert Some(None).unwrap() is None
 
         """
+        if inner_value is None:
+            return _Nothing(inner_value)
         return Some(inner_value)
 
     @classmethod
@@ -381,6 +411,11 @@ class _Nothing(Maybe[Any]):
         """Returns failed value."""
         return self._inner_value
 
+    @property
+    def success(self) -> bool:
+        """Returns ``False`` for ``Nothing``."""
+        return False
+
     def __bool__(self):
         """Returns ``False``."""
         return False
@@ -441,6 +476,11 @@ class Some(Maybe[_ValueType_co]):
     def failure(self):
         """Raises exception for successful container."""
         raise UnwrapFailedError(self)
+
+    @property
+    def success(self) -> bool:
+        """Returns ``True`` for ``Some``."""
+        return True
 
     def __bool__(self):
         """

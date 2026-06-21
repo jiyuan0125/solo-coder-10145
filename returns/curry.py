@@ -172,13 +172,25 @@ def _intermediate_argspec(
     It fails when there are invalid arguments
     or more arguments than we can fit in a function.
 
+    For functions with default parameter values, we distinguish between
+    "explicitly passed" and "using default value". Only when all parameters
+    (including those with defaults) are explicitly passed do we call the
+    function immediately. Otherwise, we return a partial application.
+    This makes the behavior predictable and supports point-free style
+    composition with optional parameters.
+
+    For functions with ``*args`` or ``**kwargs``, we fall back to the
+    original behavior (call as soon as ``bind`` succeeds), because the
+    number of arguments is not fixed.
+
     This function is slow. Any optimization ideas are welcome!
     """
     full_args = argspec.args + args
     full_kwargs = {**argspec.kwargs, **kwargs}
+    signature = argspec.signature
 
     try:
-        argspec.signature.bind(*full_args, **full_kwargs)
+        signature.bind(*full_args, **full_kwargs)
     except TypeError:
         # Another option is to copy-paste and patch `getcallargs` func
         # but in this case we get responsibility to maintain it over
@@ -186,5 +198,33 @@ def _intermediate_argspec(
         # This place is also responsible for raising ``TypeError`` for cases:
         # 1. When incorrect argument is provided
         # 2. When too many arguments are provided
-        return argspec.signature.bind_partial(*full_args, **full_kwargs), None
-    return None, (full_args, full_kwargs)
+        return signature.bind_partial(*full_args, **full_kwargs), None
+
+    # bind succeeded, meaning all required parameters are provided.
+    # Now check if ALL parameters (including those with defaults)
+    # have been explicitly passed.
+    bound = signature.bind_partial(*full_args, **full_kwargs)
+
+    # If the function has *args or **kwargs, we cannot know when all
+    # arguments are provided, so fall back to calling immediately.
+    has_var_positional = any(
+        p.kind == p.VAR_POSITIONAL for p in signature.parameters.values()
+    )
+    has_var_keyword = any(
+        p.kind == p.VAR_KEYWORD for p in signature.parameters.values()
+    )
+    if has_var_positional or has_var_keyword:
+        return None, (full_args, full_kwargs)
+
+    # Count how many parameters are not *args/**kwargs
+    num_params = len(signature.parameters) - (
+        1 if has_var_positional else 0
+    ) - (
+        1 if has_var_keyword else 0
+    )
+
+    # If all non-variadic parameters are explicitly bound, call the function.
+    # Otherwise, return partial application.
+    if len(bound.arguments) == num_params:
+        return None, (full_args, full_kwargs)
+    return bound, None

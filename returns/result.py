@@ -57,6 +57,22 @@ class Result(  # type: ignore[type-var]
     equals = container_equality
 
     @property
+    def success(self) -> bool:
+        """
+        Returns ``True`` if the container is in a successful state.
+
+        This property is side-effect free and can be used for checking
+        the container state without triggering any unwrap logic.
+
+        .. code:: python
+
+          >>> from returns.result import Success, Failure
+          >>> assert Success(1).success
+          >>> assert not Failure(1).success
+
+        """
+
+    @property
     def trace(self) -> list[FrameInfo] | None:
         """Returns a list with stack trace when :func:`~Failure` was called."""
         return self._trace
@@ -389,6 +405,11 @@ class Failure(Result[Any, _ErrorType_co]):  # noqa: WPS338
             """Returns default value for failed container."""
             return default_value
 
+    @property
+    def success(self) -> bool:
+        """Returns ``False`` for ``Failure``."""
+        return False
+
     def swap(self):
         """Failures swap to :class:`Success`."""
         return Success(self._inner_value)
@@ -453,6 +474,11 @@ class Success(Result[_ValueType_co, Any]):
         def value_or(self, default_value):
             """Returns the value for successful container."""
             return self._inner_value
+
+    @property
+    def success(self) -> bool:
+        """Returns ``True`` for ``Success``."""
+        return True
 
     def swap(self):
         """Successes swap to :class:`Failure`."""

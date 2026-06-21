@@ -2,11 +2,12 @@ from abc import ABC
 from collections.abc import Callable, Generator, Iterator
 from functools import wraps
 from inspect import FrameInfo
-from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar, final, overload
+from typing import TYPE_CHECKING, Any, Never, TypeAlias, TypeVar, final, overload
 
 from typing_extensions import ParamSpec
 
 from returns.interfaces.specific import io, ioresult
+from returns.interfaces.unwrappable import Unwrappable
 from returns.primitives.container import BaseContainer, container_equality
 from returns.primitives.exceptions import UnwrapFailedError
 from returns.primitives.hkt import (
@@ -32,6 +33,7 @@ class IO(  # type: ignore[type-var]
     BaseContainer,
     SupportsKind1['IO', _ValueType_co],
     io.IOLike1[_ValueType_co],
+    Unwrappable[_ValueType_co, Never],
 ):
     """
     Explicit container for impure function results.
@@ -64,6 +66,21 @@ class IO(  # type: ignore[type-var]
 
     #: Typesafe equality comparison with other `Result` objects.
     equals = container_equality
+
+    @property
+    def success(self) -> bool:
+        """
+        Returns ``True`` for ``IO``.
+
+        Since ``IO`` never fails, this property always returns ``True``.
+
+        .. code:: python
+
+          >>> from returns.io import IO
+          >>> assert IO(1).success
+
+        """
+        return True
 
     def __init__(self, inner_value: _ValueType_co) -> None:
         """
@@ -152,7 +169,7 @@ class IO(  # type: ignore[type-var]
 
     def __iter__(self) -> Iterator[_ValueType_co]:
         """API for :ref:`do-notation`."""
-        yield self._inner_value
+        yield self.unwrap()
 
     @classmethod
     def do(
@@ -174,7 +191,43 @@ class IO(  # type: ignore[type-var]
         See :ref:`do-notation` to learn more.
 
         """
-        return IO(next(expr))
+        try:
+            return IO.from_value(next(expr))
+        except UnwrapFailedError as exc:
+            return exc.halted_container  # type: ignore
+
+    def unwrap(self) -> _ValueType_co:
+        """
+        Get the inner value from the ``IO`` container.
+
+        Since ``IO`` never fails, this method always succeeds.
+
+        .. code:: pycon
+          :force:
+
+          >>> from returns.io import IO
+          >>> assert IO(1).unwrap() == 1
+
+        """
+        return self._inner_value
+
+    def failure(self) -> Never:
+        """
+        Always raises ``UnwrapFailedError``.
+
+        Because ``IO`` never fails, calling ``failure()`` is always a mistake.
+
+        .. code:: pycon
+          :force:
+
+          >>> from returns.io import IO
+          >>> IO(1).failure()
+          Traceback (most recent call last):
+            ...
+          returns.primitives.exceptions.UnwrapFailedError
+
+        """
+        raise UnwrapFailedError(self)
 
     @classmethod
     def from_value(cls, inner_value: _NewValueType) -> 'IO[_NewValueType]':
@@ -336,6 +389,22 @@ class IOResult(  # type: ignore[type-var]
 
     #: Typesafe equality comparison with other `IOResult` objects.
     equals = container_equality
+
+    @property
+    def success(self) -> bool:
+        """
+        Returns ``True`` if the container is in a successful state.
+
+        This property is side-effect free and can be used for checking
+        the container state without triggering any unwrap logic.
+
+        .. code:: python
+
+          >>> from returns.io import IOSuccess, IOFailure
+          >>> assert IOSuccess(1).success
+          >>> assert not IOFailure(1).success
+
+        """
 
     def __init__(
         self, inner_value: Result[_ValueType_co, _ErrorType_co]
@@ -688,6 +757,9 @@ class IOResult(  # type: ignore[type-var]
         ``IO[Result[_ValueType_co, _ErrorType_co]]`` would become
         ``IOResult[_ValueType_co, _ErrorType_co]``.
 
+        This method uses :meth:`IO.unwrap` and :meth:`IOResult.from_result`
+        to go through the full public API, not touching private attributes.
+
         .. code:: python
 
           >>> from returns.result import Success
@@ -697,7 +769,7 @@ class IOResult(  # type: ignore[type-var]
 
         Can be reverted via :meth:`returns.io.IO.from_ioresult` method.
         """
-        return cls.from_result(inner_value._inner_value)  # noqa: SLF001
+        return cls.from_result(inner_value.unwrap())
 
     @classmethod
     def from_failed_io(
@@ -707,6 +779,8 @@ class IOResult(  # type: ignore[type-var]
         """
         Creates new ``IOResult`` from "failed" ``IO`` container.
 
+        Uses :meth:`IO.unwrap` to go through the public API.
+
         .. code:: python
 
           >>> from returns.io import IO, IOResult, IOFailure
@@ -714,7 +788,7 @@ class IOResult(  # type: ignore[type-var]
           >>> assert IOResult.from_failed_io(container) == IOFailure(1)
 
         """
-        return IOFailure(inner_value._inner_value)  # noqa: SLF001
+        return IOFailure(inner_value.unwrap())
 
     @classmethod
     def from_io(
@@ -724,6 +798,8 @@ class IOResult(  # type: ignore[type-var]
         """
         Creates new ``IOResult`` from "successful" ``IO`` container.
 
+        Uses :meth:`IO.unwrap` to go through the public API.
+
         .. code:: python
 
           >>> from returns.io import IO, IOResult, IOSuccess
@@ -731,7 +807,7 @@ class IOResult(  # type: ignore[type-var]
           >>> assert IOResult.from_io(container) == IOSuccess(1)
 
         """
-        return IOSuccess(inner_value._inner_value)  # noqa: SLF001
+        return IOSuccess(inner_value.unwrap())
 
     @classmethod
     def from_result(
@@ -827,6 +903,11 @@ class IOFailure(IOResult[Any, _ErrorType_co]):
         """IOFailure constructor."""
         super().__init__(Failure(inner_value))
 
+    @property
+    def success(self) -> bool:
+        """Returns ``False`` for ``IOFailure``."""
+        return False
+
     if not TYPE_CHECKING:  # noqa: WPS604  # pragma: no branch
 
         def bind(self, function):
@@ -860,6 +941,11 @@ class IOSuccess(IOResult[_ValueType_co, Any]):
     def __init__(self, inner_value: _ValueType_co) -> None:
         """IOSuccess constructor."""
         super().__init__(Success(inner_value))
+
+    @property
+    def success(self) -> bool:
+        """Returns ``True`` for ``IOSuccess``."""
+        return True
 
     if not TYPE_CHECKING:  # noqa: WPS604  # pragma: no branch
 
