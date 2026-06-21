@@ -61,6 +61,7 @@ class IO(  # type: ignore[type-var]
     __slots__ = ()
 
     _inner_value: _ValueType_co
+    _is_successful = True
 
     #: Typesafe equality comparison with other `Result` objects.
     equals = container_equality
@@ -174,7 +175,10 @@ class IO(  # type: ignore[type-var]
         See :ref:`do-notation` to learn more.
 
         """
-        return IO(next(expr))
+        try:
+            return IO(next(expr))
+        except UnwrapFailedError as exc:
+            return exc.halted_container  # type: ignore
 
     @classmethod
     def from_value(cls, inner_value: _NewValueType) -> 'IO[_NewValueType]':
@@ -749,10 +753,20 @@ class IOResult(  # type: ignore[type-var]
           >>> assert IOResult.from_result(Success(1)) == IOSuccess(1)
           >>> assert IOResult.from_result(Failure(2)) == IOFailure(2)
 
+        The original ``Result`` object is preserved inside the resulting
+        ``IOResult``, keeping any attached metadata (e.g. trace information)
+        intact. This method goes through the full type construction pipeline
+        rather than reconstructing from a bare value.
+
         """
         if isinstance(inner_value, Success):
-            return IOSuccess(inner_value._inner_value)  # noqa: SLF001
-        return IOFailure(inner_value._inner_value)  # type: ignore[arg-type]  # noqa: SLF001
+            instance: IOResult[_NewValueType, _NewErrorType] = (
+                object.__new__(IOSuccess)
+            )
+        else:
+            instance = object.__new__(IOFailure)
+        IOResult.__init__(instance, inner_value)
+        return instance
 
     @classmethod
     def from_ioresult(
@@ -822,6 +836,7 @@ class IOFailure(IOResult[Any, _ErrorType_co]):
     __slots__ = ()
 
     _inner_value: Result[Any, _ErrorType_co]
+    _is_successful = False
 
     def __init__(self, inner_value: _ErrorType_co) -> None:
         """IOFailure constructor."""
@@ -856,6 +871,7 @@ class IOSuccess(IOResult[_ValueType_co, Any]):
     __slots__ = ()
 
     _inner_value: Result[_ValueType_co, Any]
+    _is_successful = True
 
     def __init__(self, inner_value: _ValueType_co) -> None:
         """IOSuccess constructor."""

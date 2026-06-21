@@ -30,7 +30,14 @@ def is_successful(container: Unwrappable[Any, Any]) -> bool:
     This function can work with containers
     that are instance of :class:`returns.interfaces.unwrappable.Unwrappable`.
 
+    Uses a side-effect-free ``_is_successful`` attribute when available
+    to avoid triggering ``unwrap()`` overhead or any side effects.
+    Falls back to a safe ``try/unwrap`` for custom containers.
+
     """
+    marker: Any = getattr(container, '_is_successful', None)
+    if marker is not None:
+        return bool(marker)
     try:
         container.unwrap()
     except UnwrapFailedError:

@@ -281,6 +281,21 @@ class Maybe(  # type: ignore[type-var]
           >>> assert Maybe.from_value(1) == Some(1)
           >>> assert Maybe.from_value(None) == Some(None)
 
+        .. note::
+
+            This method treats ``None`` as a regular value, wrapping it
+            inside ``Some(None)``. ``Some(None)`` is truthy in boolean context.
+
+            If you want ``None`` to be treated as the empty container
+            (``Nothing``), use :meth:`~Maybe.from_optional` instead.
+            The two methods are intentionally distinct and have well-defined,
+            predictable behavior:
+
+            - ``from_value(x)`` → always wraps ``x`` in ``Some``,
+              even if ``x`` is ``None``.
+            - ``from_optional(x)`` → ``Some(x)`` when ``x`` is not ``None``,
+              ``Nothing`` when ``x`` is ``None``.
+
         """
         return Some(inner_value)
 
@@ -297,6 +312,20 @@ class Maybe(  # type: ignore[type-var]
           >>> from returns.maybe import Maybe, Some, Nothing
           >>> assert Maybe.from_optional(1) == Some(1)
           >>> assert Maybe.from_optional(None) == Nothing
+
+        .. note::
+
+            This method treats ``None`` as the empty container.
+
+            If you want to wrap ``None`` as a valid value inside ``Some``,
+            use :meth:`~Maybe.from_value` instead.
+            The two methods are intentionally distinct and have well-defined,
+            predictable behavior:
+
+            - ``from_optional(x)`` → ``Some(x)`` when ``x`` is not ``None``,
+              ``Nothing`` when ``x`` is ``None``.
+            - ``from_value(x)`` → always wraps ``x`` in ``Some``,
+              even if ``x`` is ``None``.
 
         """
         if inner_value is None:
@@ -315,6 +344,7 @@ class _Nothing(Maybe[Any]):
 
     _inner_value: None
     _instance: Optional['_Nothing'] = None
+    _is_successful = False
 
     def __new__(cls, *args: Any, **kwargs: Any) -> '_Nothing':
         if cls._instance is None:
@@ -397,6 +427,7 @@ class Some(Maybe[_ValueType_co]):
     __slots__ = ()
 
     _inner_value: _ValueType_co
+    _is_successful = True
 
     def __init__(self, inner_value: _ValueType_co) -> None:
         """Some constructor."""

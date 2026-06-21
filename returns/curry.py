@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import partial as _partial
 from functools import wraps
-from inspect import BoundArguments, Signature
+from inspect import BoundArguments, Parameter, Signature
 from typing import Any, TypeAlias, TypeVar
 
 _ReturnType = TypeVar('_ReturnType')
@@ -173,18 +173,51 @@ def _intermediate_argspec(
     or more arguments than we can fit in a function.
 
     This function is slow. Any optimization ideas are welcome!
+
+    Default value handling rules (to distinguish "use default" vs "explicit
+    default"):
+
+    1. When **all** named parameters (including those with defaults) have been
+       explicitly passed by the caller → execute the function immediately.
+    2. When **none** of the named parameters have been passed, but every
+       single one has a default value (e.g. ``f()`` called on
+       ``def f(a=1, b=2):``) → execute the function with all defaults.
+    3. In every other partial situation (e.g. only the required args were
+       passed but optional defaults were skipped) → return a partially
+       applied callable so the caller can still override any default.
     """
     full_args = argspec.args + args
     full_kwargs = {**argspec.kwargs, **kwargs}
+    signature = argspec.signature
+
+    partial_bound = signature.bind_partial(*full_args, **full_kwargs)
+
+    named_params = [
+        (name, param)
+        for name, param in signature.parameters.items()
+        if param.kind not in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
+    ]
+    named_names = [name for name, _ in named_params]
+    bound_named = {
+        name for name in named_names if name in partial_bound.arguments
+    }
+    all_named_have_defaults = all(
+        param.default is not Parameter.empty for _, param in named_params
+    )
+
+    all_explicit = len(bound_named) == len(named_names)
+    using_all_defaults = (
+        len(named_names) > 0
+        and len(bound_named) == 0
+        and all_named_have_defaults
+    )
 
     try:
-        argspec.signature.bind(*full_args, **full_kwargs)
+        signature.bind(*full_args, **full_kwargs)
     except TypeError:
-        # Another option is to copy-paste and patch `getcallargs` func
-        # but in this case we get responsibility to maintain it over
-        # python releases.
-        # This place is also responsible for raising ``TypeError`` for cases:
-        # 1. When incorrect argument is provided
-        # 2. When too many arguments are provided
-        return argspec.signature.bind_partial(*full_args, **full_kwargs), None
-    return None, (full_args, full_kwargs)
+        return partial_bound, None
+
+    if all_explicit or using_all_defaults:
+        return None, (full_args, full_kwargs)
+
+    return partial_bound, None

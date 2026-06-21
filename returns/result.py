@@ -354,6 +354,7 @@ class Failure(Result[Any, _ErrorType_co]):  # noqa: WPS338
     __slots__ = ()
 
     _inner_value: _ErrorType_co
+    _is_successful = False
 
     def __init__(self, inner_value: _ErrorType_co) -> None:
         """Failure constructor."""
@@ -418,6 +419,7 @@ class Success(Result[_ValueType_co, Any]):
     __slots__ = ()
 
     _inner_value: _ValueType_co
+    _is_successful = True
 
     def __init__(self, inner_value: _ValueType_co) -> None:
         """Success constructor."""
