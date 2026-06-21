@@ -1,0 +1,13 @@
+- case: asyncify_decorator_with_args
+  disable_cache: false
+  main: |
+    from typing import Optional
+    from returns.future import asyncify
+
+    @asyncify
+    def test(
+        first: int, second: Optional[str] = None, *, kw: bool = True,
+    ) -> int:
+        return 1
+
+    reveal_type(test)  # N: Revealed type is "def (first: int, second: str | None =, *, kw: bool =) -> typing.Coroutine[Any, Any, int]"
