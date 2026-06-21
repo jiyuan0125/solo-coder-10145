@@ -270,18 +270,23 @@ class Maybe(  # type: ignore[type-var]
     @classmethod
     def from_value(
         cls,
-        inner_value: _NewValueType,
+        inner_value: _NewValueType | None,
     ) -> 'Maybe[_NewValueType]':
         """
         Creates new instance of ``Maybe`` container based on a value.
 
+        ``None`` is treated as an empty value (consistent with ``from_optional``).
+        Use ``Some(None)`` directly if you explicitly need ``Some`` with ``None``.
+
         .. code:: python
 
-          >>> from returns.maybe import Maybe, Some
+          >>> from returns.maybe import Maybe, Nothing, Some
           >>> assert Maybe.from_value(1) == Some(1)
-          >>> assert Maybe.from_value(None) == Some(None)
+          >>> assert Maybe.from_value(None) == Nothing
 
         """
+        if inner_value is None:
+            return _Nothing(inner_value)
         return Some(inner_value)
 
     @classmethod
@@ -377,6 +382,11 @@ class _Nothing(Maybe[Any]):
         """Raises an exception, since it does not have a value inside."""
         raise UnwrapFailedError(self)
 
+    @property
+    def is_successful(self) -> bool:
+        """Returns ``False`` for ``Nothing``."""
+        return False
+
     def failure(self) -> None:
         """Returns failed value."""
         return self._inner_value
@@ -441,6 +451,11 @@ class Some(Maybe[_ValueType_co]):
     def failure(self):
         """Raises exception for successful container."""
         raise UnwrapFailedError(self)
+
+    @property
+    def is_successful(self) -> bool:
+        """Returns ``True`` for ``Some``."""
+        return True
 
     def __bool__(self):
         """

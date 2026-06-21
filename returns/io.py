@@ -152,7 +152,21 @@ class IO(  # type: ignore[type-var]
 
     def __iter__(self) -> Iterator[_ValueType_co]:
         """API for :ref:`do-notation`."""
-        yield self._inner_value
+        yield self.unwrap()
+
+    def unwrap(self) -> _ValueType_co:
+        """
+        Get the inner value from the container.
+
+        Since ``IO`` never fails, this method always returns the value.
+
+        .. code:: python
+
+          >>> from returns.io import IO
+          >>> assert IO(1).unwrap() == 1
+
+        """
+        return self._inner_value
 
     @classmethod
     def do(
@@ -174,7 +188,10 @@ class IO(  # type: ignore[type-var]
         See :ref:`do-notation` to learn more.
 
         """
-        return IO(next(expr))
+        try:
+            return IO.from_value(next(expr))
+        except UnwrapFailedError as exc:
+            return exc.halted_container  # type: ignore
 
     @classmethod
     def from_value(cls, inner_value: _NewValueType) -> 'IO[_NewValueType]':
@@ -592,6 +609,20 @@ class IOResult(  # type: ignore[type-var]
         """
         return IO(self._inner_value.unwrap())
 
+    @property
+    def is_successful(self) -> bool:
+        """
+        Returns ``True`` if the container is in a successful state.
+
+        .. code:: python
+
+          >>> from returns.io import IOSuccess, IOFailure
+          >>> assert IOSuccess(1).is_successful
+          >>> assert not IOFailure(1).is_successful
+
+        """
+        return self._inner_value.is_successful
+
     def failure(self) -> IO[_ErrorType_co]:
         """
         Get failed value from failed container or raise exception from success.
@@ -697,7 +728,7 @@ class IOResult(  # type: ignore[type-var]
 
         Can be reverted via :meth:`returns.io.IO.from_ioresult` method.
         """
-        return cls.from_result(inner_value._inner_value)  # noqa: SLF001
+        return cls.from_result(inner_value.unwrap())
 
     @classmethod
     def from_failed_io(

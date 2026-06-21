@@ -20,6 +20,23 @@ class Unwrappable(Generic[_FirstType, _SecondType]):
 
     __slots__ = ()
 
+    @property
+    @abstractmethod
+    def is_successful(self: _UnwrappableType) -> bool:
+        """
+        Returns ``True`` if the container is in a successful state.
+
+        This property is side-effect free and can be used to check
+        if ``unwrap()`` will succeed without actually calling it.
+
+        .. code:: python
+
+          >>> from returns.result import Success, Failure
+          >>> assert Success(1).is_successful
+          >>> assert not Failure(1).is_successful
+
+        """
+
     @abstractmethod
     def unwrap(self: _UnwrappableType) -> _FirstType:
         """

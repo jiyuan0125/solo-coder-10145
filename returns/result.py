@@ -399,6 +399,11 @@ class Failure(Result[Any, _ErrorType_co]):  # noqa: WPS338
             raise UnwrapFailedError(self) from self._inner_value
         raise UnwrapFailedError(self)
 
+    @property
+    def is_successful(self) -> bool:
+        """Returns ``False`` for ``Failure``."""
+        return False
+
     def failure(self) -> _ErrorType_co:
         """Returns failed value."""
         return self._inner_value
@@ -461,6 +466,11 @@ class Success(Result[_ValueType_co, Any]):
     def unwrap(self) -> _ValueType_co:
         """Returns the unwrapped value from successful container."""
         return self._inner_value
+
+    @property
+    def is_successful(self) -> bool:
+        """Returns ``True`` for ``Success``."""
+        return True
 
     def failure(self) -> Never:
         """Raises an exception for successful container."""

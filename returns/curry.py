@@ -167,10 +167,10 @@ def _intermediate_argspec(
 
     We use ``Signature`` objects from ``inspect`` to bind existing arguments.
 
-    If there's a ``TypeError`` while we ``bind`` the arguments we try again.
-    The second time we try to ``bind_partial`` arguments. It can fail too!
-    It fails when there are invalid arguments
-    or more arguments than we can fit in a function.
+    We only call the function when **all** regular parameters
+    (excluding ``*args`` and ``**kwargs``) have been explicitly provided.
+    This ensures predictable behavior and supports point-free style,
+    because default values do not trigger early execution.
 
     This function is slow. Any optimization ideas are welcome!
     """
@@ -178,13 +178,20 @@ def _intermediate_argspec(
     full_kwargs = {**argspec.kwargs, **kwargs}
 
     try:
-        argspec.signature.bind(*full_args, **full_kwargs)
+        bound = argspec.signature.bind_partial(*full_args, **full_kwargs)
     except TypeError:
-        # Another option is to copy-paste and patch `getcallargs` func
-        # but in this case we get responsibility to maintain it over
-        # python releases.
-        # This place is also responsible for raising ``TypeError`` for cases:
-        # 1. When incorrect argument is provided
-        # 2. When too many arguments are provided
-        return argspec.signature.bind_partial(*full_args, **full_kwargs), None
-    return None, (full_args, full_kwargs)
+        raise
+
+    total_regular = 0
+    bound_regular = 0
+    for name, param in argspec.signature.parameters.items():
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            continue
+        total_regular += 1
+        if name in bound.arguments:
+            bound_regular += 1
+
+    if bound_regular >= total_regular:
+        return None, (full_args, full_kwargs)
+
+    return bound, None
