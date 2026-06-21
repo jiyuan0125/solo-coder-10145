@@ -291,20 +291,19 @@ class Maybe(  # type: ignore[type-var]
         """
         Creates new instance of ``Maybe`` container based on a value.
 
-        This factory treats ``None`` as a regular, valid value and wraps
-        it in ``Some(None)``. It does **not** interpret ``None`` as empty.
+        This factory wraps any value (including ``None``) in ``Some``.
+        It does **not** interpret ``None`` as empty.
 
         .. code:: python
 
-          >>> from returns.maybe import Maybe, Some, Nothing
+          >>> from returns.maybe import Maybe, Some
           >>> assert Maybe.from_value(1) == Some(1)
           >>> assert Maybe.from_value(None) == Some(None)
 
-        Use this method when you want to treat any value (including ``None``)
-        as a legitimate wrapped value.
+        This method is equivalent to :meth:`~Maybe.from_optional`.
 
-        If you want ``None`` to be interpreted as an empty container
-        (returning ``Nothing`` instead), use :meth:`~Maybe.from_optional`.
+        To create ``Nothing`` (the empty container), use the ``Nothing``
+        constant directly, or the :attr:`~Maybe.empty` property.
 
         """
         return Some(inner_value)
@@ -317,23 +316,30 @@ class Maybe(  # type: ignore[type-var]
         """
         Creates new instance of ``Maybe`` container based on an optional value.
 
-        This factory interprets ``None`` as empty, returning ``Nothing``.
-        Any other value is wrapped in ``Some``.
+        This factory is equivalent to :meth:`~Maybe.from_value`:
+        it wraps any value (including ``None``) in ``Some``.
+        The method name ``from_optional`` signals that the input type
+        is ``Optional[T]`` (i.e., ``T | None``), but ``None`` is treated
+        as a regular value and wrapped in ``Some(None)``.
 
         .. code:: python
 
-          >>> from returns.maybe import Maybe, Some, Nothing
+          >>> from returns.maybe import Maybe, Some
           >>> assert Maybe.from_optional(1) == Some(1)
-          >>> assert Maybe.from_optional(None) == Nothing
+          >>> assert Maybe.from_optional(None) == Some(None)
 
-        Use this method when a ``None`` input semantically means "no value".
+        Both :meth:`~Maybe.from_value` and :meth:`~Maybe.from_optional`
+        produce the same result for any input, including ``None``:
 
-        If you want ``None`` to be treated as a valid wrapped value
-        (returning ``Some(None)`` instead), use :meth:`~Maybe.from_value`.
+        .. code:: python
+
+          >>> from returns.maybe import Maybe
+          >>> assert Maybe.from_value(None) == Maybe.from_optional(None)
+
+        To create ``Nothing`` (the empty container), use the ``Nothing``
+        constant directly, or the :attr:`~Maybe.empty` property.
 
         """
-        if inner_value is None:
-            return _Nothing(inner_value)
         return Some(inner_value)
 
     def __bool__(self) -> bool:
@@ -448,7 +454,10 @@ class Some(Maybe[_ValueType_co]):
 
         def bind_optional(self, function):
             """Binds a function returning an optional value over a container."""
-            return Maybe.from_optional(function(self._inner_value))
+            result = function(self._inner_value)
+            if result is None:
+                return _Nothing(result)
+            return Some(result)
 
         def unwrap(self):
             """Returns inner value for successful container."""
@@ -529,6 +538,9 @@ def maybe(
         *args: _FuncParams.args,
         **kwargs: _FuncParams.kwargs,
     ) -> Maybe[_ValueType_co]:
-        return Maybe.from_optional(function(*args, **kwargs))
+        result = function(*args, **kwargs)
+        if result is None:
+            return _Nothing(result)
+        return Some(result)
 
     return decorator

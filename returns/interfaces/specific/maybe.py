@@ -47,8 +47,8 @@ class _LawSpec(LawSpecDef):
     ) -> None:
         """Ensures that you cannot map from failures."""
         assert_equal(
-            container.from_optional(None).map(function),
-            container.from_optional(None),
+            container.empty.map(function),
+            container.empty,
         )
 
     @law_definition
@@ -61,8 +61,8 @@ class _LawSpec(LawSpecDef):
     ) -> None:
         """Ensures that you cannot bind from failures."""
         assert_equal(
-            container.from_optional(None).bind(function),
-            container.from_optional(None),
+            container.empty.bind(function),
+            container.empty,
         )
 
     @law_definition
@@ -72,8 +72,8 @@ class _LawSpec(LawSpecDef):
     ) -> None:
         """Ensures that you cannot bind from failures."""
         assert_equal(
-            container.from_optional(None).bind_optional(function),
-            container.from_optional(None),
+            container.empty.bind_optional(function),
+            container.empty,
         )
 
     @law_definition
@@ -96,10 +96,10 @@ class _LawSpec(LawSpecDef):
         container: 'MaybeLikeN[_FirstType, _SecondType, _ThirdType]',
         function: Callable[[_FirstType], None],
     ) -> None:
-        """Ensures ``None`` is treated specially."""
+        """Ensures ``bind_optional`` with a ``None``-returning function yields empty."""
         assert_equal(
             container.bind_optional(function),
-            container.from_optional(None),
+            container.empty,
         )
 
 

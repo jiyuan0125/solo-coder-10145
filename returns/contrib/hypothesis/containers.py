@@ -62,6 +62,7 @@ def strategy_from_container(
                     st.from_type(value_type),
                 )
             )
+            strategies.append(st.just(container_type.empty))
         return st.one_of(*strategies)
 
     return factory
