@@ -172,16 +172,20 @@ def _intermediate_argspec(
     It fails when there are invalid arguments
     or more arguments than we can fit in a function.
 
-    For functions with default parameter values, we distinguish between
-    "explicitly passed" and "using default value". Only when all parameters
-    (including those with defaults) are explicitly passed do we call the
-    function immediately. Otherwise, we return a partial application.
-    This makes the behavior predictable and supports point-free style
-    composition with optional parameters.
+    Calling convention:
+    - If ``signature.bind`` succeeds (all required arguments are provided,
+      remaining ones have defaults), the function is called immediately
+      with default values filled in for the missing optional parameters.
+    - If ``signature.bind`` fails but ``bind_partial`` succeeds, we return
+      a new partially-applied callable.
 
-    For functions with ``*args`` or ``**kwargs``, we fall back to the
-    original behavior (call as soon as ``bind`` succeeds), because the
-    number of arguments is not fixed.
+    This means:
+    - ``curry(lambda x=0: x)()`` returns ``0`` (all params have defaults,
+      bind succeeds even with no args)
+    - ``curry(lambda x, y=10: x + y)(1)`` returns ``11`` (required ``x``
+      is provided, ``y`` uses its default)
+    - ``curry(lambda x, y=10: x + y)()`` returns a partial (required ``x``
+      is missing, bind fails)
 
     This function is slow. Any optimization ideas are welcome!
     """
@@ -199,32 +203,4 @@ def _intermediate_argspec(
         # 1. When incorrect argument is provided
         # 2. When too many arguments are provided
         return signature.bind_partial(*full_args, **full_kwargs), None
-
-    # bind succeeded, meaning all required parameters are provided.
-    # Now check if ALL parameters (including those with defaults)
-    # have been explicitly passed.
-    bound = signature.bind_partial(*full_args, **full_kwargs)
-
-    # If the function has *args or **kwargs, we cannot know when all
-    # arguments are provided, so fall back to calling immediately.
-    has_var_positional = any(
-        p.kind == p.VAR_POSITIONAL for p in signature.parameters.values()
-    )
-    has_var_keyword = any(
-        p.kind == p.VAR_KEYWORD for p in signature.parameters.values()
-    )
-    if has_var_positional or has_var_keyword:
-        return None, (full_args, full_kwargs)
-
-    # Count how many parameters are not *args/**kwargs
-    num_params = len(signature.parameters) - (
-        1 if has_var_positional else 0
-    ) - (
-        1 if has_var_keyword else 0
-    )
-
-    # If all non-variadic parameters are explicitly bound, call the function.
-    # Otherwise, return partial application.
-    if len(bound.arguments) == num_params:
-        return None, (full_args, full_kwargs)
-    return bound, None
+    return None, (full_args, full_kwargs)

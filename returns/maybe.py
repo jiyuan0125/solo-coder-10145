@@ -291,27 +291,22 @@ class Maybe(  # type: ignore[type-var]
         """
         Creates new instance of ``Maybe`` container based on a value.
 
-        If the value is ``None``, returns ``Nothing``.
-        This is consistent with :meth:`~Maybe.from_optional`
-        and provides a unified interpretation of ``None`` as empty.
+        This factory treats ``None`` as a regular, valid value and wraps
+        it in ``Some(None)``. It does **not** interpret ``None`` as empty.
 
         .. code:: python
 
           >>> from returns.maybe import Maybe, Some, Nothing
           >>> assert Maybe.from_value(1) == Some(1)
-          >>> assert Maybe.from_value(None) == Nothing
+          >>> assert Maybe.from_value(None) == Some(None)
 
-        If you need to wrap ``None`` as a valid value (creating ``Some(None)``),
-        use the :class:`~Some` constructor directly.
+        Use this method when you want to treat any value (including ``None``)
+        as a legitimate wrapped value.
 
-        .. code:: python
-
-          >>> from returns.maybe import Some
-          >>> assert Some(None).unwrap() is None
+        If you want ``None`` to be interpreted as an empty container
+        (returning ``Nothing`` instead), use :meth:`~Maybe.from_optional`.
 
         """
-        if inner_value is None:
-            return _Nothing(inner_value)
         return Some(inner_value)
 
     @classmethod
@@ -322,11 +317,19 @@ class Maybe(  # type: ignore[type-var]
         """
         Creates new instance of ``Maybe`` container based on an optional value.
 
+        This factory interprets ``None`` as empty, returning ``Nothing``.
+        Any other value is wrapped in ``Some``.
+
         .. code:: python
 
           >>> from returns.maybe import Maybe, Some, Nothing
           >>> assert Maybe.from_optional(1) == Some(1)
           >>> assert Maybe.from_optional(None) == Nothing
+
+        Use this method when a ``None`` input semantically means "no value".
+
+        If you want ``None`` to be treated as a valid wrapped value
+        (returning ``Some(None)`` instead), use :meth:`~Maybe.from_value`.
 
         """
         if inner_value is None:
