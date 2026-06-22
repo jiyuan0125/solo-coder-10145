@@ -167,10 +167,11 @@ def _intermediate_argspec(
 
     We use ``Signature`` objects from ``inspect`` to bind existing arguments.
 
-    We only call the function when **all** regular parameters
-    (excluding ``*args`` and ``**kwargs``) have been explicitly provided.
-    This ensures predictable behavior and supports point-free style,
-    because default values do not trigger early execution.
+    The function is called when all **required parameters**
+    (parameters without default values) have been provided.
+    Parameters with default values are filled in automatically,
+    so both ``f()`` and ``f(x=0)`` produce the same result
+    for a function with ``x=0`` default.
 
     This function is slow. Any optimization ideas are welcome!
     """
@@ -178,20 +179,12 @@ def _intermediate_argspec(
     full_kwargs = {**argspec.kwargs, **kwargs}
 
     try:
-        bound = argspec.signature.bind_partial(*full_args, **full_kwargs)
+        argspec.signature.bind(*full_args, **full_kwargs)
     except TypeError:
-        raise
+        try:
+            bound = argspec.signature.bind_partial(*full_args, **full_kwargs)
+        except TypeError:
+            raise
+        return bound, None
 
-    total_regular = 0
-    bound_regular = 0
-    for name, param in argspec.signature.parameters.items():
-        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-            continue
-        total_regular += 1
-        if name in bound.arguments:
-            bound_regular += 1
-
-    if bound_regular >= total_regular:
-        return None, (full_args, full_kwargs)
-
-    return bound, None
+    return None, (full_args, full_kwargs)
