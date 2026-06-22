@@ -174,7 +174,10 @@ class IO(  # type: ignore[type-var]
         See :ref:`do-notation` to learn more.
 
         """
-        return IO(next(expr))
+        try:
+            return IO(next(expr))
+        except UnwrapFailedError as exc:
+            return exc.halted_container
 
     @classmethod
     def from_value(cls, inner_value: _NewValueType) -> 'IO[_NewValueType]':
@@ -829,6 +832,11 @@ class IOFailure(IOResult[Any, _ErrorType_co]):
 
     if not TYPE_CHECKING:  # noqa: WPS604  # pragma: no branch
 
+        @property
+        def is_success(self) -> bool:
+            """Returns ``False`` for failed container."""
+            return False
+
         def bind(self, function):
             """Does nothing for ``IOFailure``."""
             return self
@@ -862,6 +870,11 @@ class IOSuccess(IOResult[_ValueType_co, Any]):
         super().__init__(Success(inner_value))
 
     if not TYPE_CHECKING:  # noqa: WPS604  # pragma: no branch
+
+        @property
+        def is_success(self) -> bool:
+            """Returns ``True`` for successful container."""
+            return True
 
         def bind(self, function):
             """Composes this container with a function returning ``IOResult``."""  # noqa: E501

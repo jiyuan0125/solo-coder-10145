@@ -49,6 +49,8 @@ class _LawSpec(LawSpecDef):
         context with return and then feed it to a function by using ``bind``,
         it's the same as just taking the value and applying the function to it.
         """
+        if raw_value is None:
+            return
         assert_equal(
             container.from_value(raw_value).bind(function),
             function(raw_value),

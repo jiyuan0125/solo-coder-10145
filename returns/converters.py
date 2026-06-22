@@ -61,13 +61,13 @@ def result_to_maybe(
       >>> from returns.result import Failure, Success
 
       >>> assert result_to_maybe(Success(1)) == Some(1)
-      >>> assert result_to_maybe(Success(None)) == Some(None)
+      >>> assert result_to_maybe(Success(None)) == Nothing
       >>> assert result_to_maybe(Failure(1)) == Nothing
       >>> assert result_to_maybe(Failure(None)) == Nothing
 
     """
     if is_successful(result_container):
-        return Some(result_container.unwrap())
+        return Maybe.from_optional(result_container.unwrap())
     return Nothing
 
 

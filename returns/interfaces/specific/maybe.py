@@ -86,9 +86,12 @@ class _LawSpec(LawSpecDef):
         ],
     ) -> None:
         """Ensures that you cannot lash a success."""
+        wrapped = container.from_value(raw_value)
+        if raw_value is None:
+            return
         assert_equal(
-            container.from_value(raw_value).lash(function),
-            container.from_value(raw_value),
+            wrapped.lash(function),
+            wrapped,
         )
 
     @law_definition

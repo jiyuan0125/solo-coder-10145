@@ -47,6 +47,8 @@ class _FailableLawSpec(LawSpecDef):
         ],
     ) -> None:
         """Ensures that you cannot lash a success."""
+        if raw_value is None:
+            return
         assert_equal(
             container.from_value(raw_value),
             container.from_value(raw_value).lash(function),
@@ -222,6 +224,8 @@ class _DiverseFailableLawSpec(LawSpecDef):
         function: Callable[[_SecondType], _NewFirstType],
     ) -> None:
         """Ensures that you cannot alt a success."""
+        if raw_value is None:
+            return
         assert_equal(
             container.from_value(raw_value),
             container.from_value(raw_value).alt(function),

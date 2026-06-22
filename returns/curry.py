@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import partial as _partial
 from functools import wraps
-from inspect import BoundArguments, Signature
+from inspect import BoundArguments, Parameter, Signature
 from typing import Any, TypeAlias, TypeVar
 
 _ReturnType = TypeVar('_ReturnType')
@@ -172,6 +172,11 @@ def _intermediate_argspec(
     It fails when there are invalid arguments
     or more arguments than we can fit in a function.
 
+    When ``bind`` succeeds because default values fill in missing arguments,
+    we still return partial application if not all parameters were explicitly
+    provided by the caller. This ensures that ``curry(f)(1)`` returns
+    a partial for ``def f(a, b=10)`` instead of calling ``f(1, 10)``.
+
     This function is slow. Any optimization ideas are welcome!
     """
     full_args = argspec.args + args
@@ -180,11 +185,19 @@ def _intermediate_argspec(
     try:
         argspec.signature.bind(*full_args, **full_kwargs)
     except TypeError:
-        # Another option is to copy-paste and patch `getcallargs` func
-        # but in this case we get responsibility to maintain it over
-        # python releases.
-        # This place is also responsible for raising ``TypeError`` for cases:
-        # 1. When incorrect argument is provided
-        # 2. When too many arguments are provided
         return argspec.signature.bind_partial(*full_args, **full_kwargs), None
-    return None, (full_args, full_kwargs)
+
+    num_params = sum(
+        1 for p in argspec.signature.parameters.values()
+        if p.kind in (
+            Parameter.POSITIONAL_ONLY,
+            Parameter.POSITIONAL_OR_KEYWORD,
+            Parameter.KEYWORD_ONLY,
+        )
+    )
+    num_provided = len(full_args) + len(full_kwargs)
+
+    if num_provided >= num_params:
+        return None, (full_args, full_kwargs)
+
+    return argspec.signature.bind_partial(*full_args, **full_kwargs), None

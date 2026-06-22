@@ -362,6 +362,11 @@ class Failure(Result[Any, _ErrorType_co]):  # noqa: WPS338
 
     if not TYPE_CHECKING:  # noqa: WPS604  # pragma: no branch
 
+        @property
+        def is_success(self) -> bool:
+            """Returns ``False`` for failed container."""
+            return False
+
         def alt(self, function):
             """Composes failed container with a pure function to modify failure."""  # noqa: E501
             return Failure(function(self._inner_value))
@@ -424,6 +429,11 @@ class Success(Result[_ValueType_co, Any]):
         super().__init__(inner_value)
 
     if not TYPE_CHECKING:  # noqa: WPS604  # pragma: no branch
+
+        @property
+        def is_success(self) -> bool:
+            """Returns ``True`` for successful container."""
+            return True
 
         def alt(self, function):
             """Does nothing for ``Success``."""

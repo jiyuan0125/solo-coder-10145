@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from typing import Generic, TypeVar
 
+from returns.primitives.exceptions import UnwrapFailedError
+
 _FirstType = TypeVar('_FirstType')
 _SecondType = TypeVar('_SecondType')
 
@@ -48,3 +50,24 @@ class Unwrappable(Generic[_FirstType, _SecondType]):
 
         This method is the opposite of :meth:`~Unwrapable.unwrap`.
         """
+
+    @property
+    def is_success(self) -> bool:
+        """
+        Side-effect-free check whether the container represents success.
+
+        Default implementation uses ``unwrap`` which may have side effects.
+        Concrete containers should override this with a constant value.
+
+        .. code:: python
+
+          >>> from returns.result import Success, Failure
+          >>> assert Success(1).is_success is True
+          >>> assert Failure(1).is_success is False
+
+        """
+        try:
+            self.unwrap()
+        except UnwrapFailedError:
+            return False
+        return True

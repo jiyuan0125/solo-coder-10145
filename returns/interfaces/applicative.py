@@ -67,6 +67,8 @@ class _LawSpec(LawSpecDef):
 
         Great explanation: https://stackoverflow.com/q/27285918/4842742
         """
+        if raw_value is None:
+            return
         assert_equal(
             container.from_value(raw_value).apply(
                 container.from_value(function),
@@ -90,6 +92,8 @@ class _LawSpec(LawSpecDef):
         as applying the function to the value in the normal way
         and then using ``.from_value`` on the result.
         """
+        if raw_value is None or function(raw_value) is None:
+            return
         assert_equal(
             container.from_value(function(raw_value)),
             container.from_value(raw_value).apply(

@@ -4,10 +4,8 @@ from returns._internal.pipeline.flow import flow as flow
 from returns._internal.pipeline.managed import managed as managed
 from returns._internal.pipeline.pipe import pipe as pipe
 from returns.interfaces.unwrappable import Unwrappable
-from returns.primitives.exceptions import UnwrapFailedError
 
 
-# TODO: add overloads for specific types, so it can narrow them with `TypeIs`
 def is_successful(container: Unwrappable[Any, Any]) -> bool:
     """
     Determines if a container was successful or not.
@@ -31,8 +29,4 @@ def is_successful(container: Unwrappable[Any, Any]) -> bool:
     that are instance of :class:`returns.interfaces.unwrappable.Unwrappable`.
 
     """
-    try:
-        container.unwrap()
-    except UnwrapFailedError:
-        return False
-    return True
+    return container.is_success

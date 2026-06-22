@@ -279,9 +279,11 @@ class Maybe(  # type: ignore[type-var]
 
           >>> from returns.maybe import Maybe, Some
           >>> assert Maybe.from_value(1) == Some(1)
-          >>> assert Maybe.from_value(None) == Some(None)
+          >>> assert Maybe.from_value(None) == Nothing
 
         """
+        if inner_value is None:
+            return _Nothing(inner_value)
         return Some(inner_value)
 
     @classmethod
@@ -345,6 +347,11 @@ class _Nothing(Maybe[Any]):
         """
         return '<Nothing>'
 
+    @property
+    def is_success(self) -> bool:
+        """Returns ``False`` for empty container."""
+        return False
+
     def map(self, function):
         """Does nothing for ``Nothing``."""
         return self
@@ -403,6 +410,11 @@ class Some(Maybe[_ValueType_co]):
         super().__init__(inner_value)
 
     if not TYPE_CHECKING:  # noqa: WPS604  # pragma: no branch
+
+        @property
+        def is_success(self) -> bool:
+            """Returns ``True`` for successful container."""
+            return True
 
         def bind(self, function):
             """Binds current container to a function that returns container."""
